@@ -1,14 +1,12 @@
 import json
 
 from django import forms
-from django.conf import settings
 from django.contrib.gis.forms import BaseGeometryWidget
 from django.contrib.gis.geos import Point
 from django.core.exceptions import ImproperlyConfigured
 from django.template.loader import render_to_string
 from django.templatetags.static import static
 from django.utils import six
-from django.utils.html import format_html
 from django.utils.http import urlencode
 
 from mapwidgets.constants import STATIC_MAP_PLACEHOLDER_IMAGE
@@ -59,7 +57,7 @@ class GooglePointFieldWidget(BaseGeometryWidget):
             attrs = dict()
 
         field_value = {}
-        if isinstance(value,  Point):
+        if isinstance(value, Point):
             field_value["lng"] = value.x
             field_value["lat"] = value.y
 
@@ -78,7 +76,6 @@ class GooglePointFieldWidget(BaseGeometryWidget):
 
 
 class PointFieldInlineWidgetMixin(object):
-
     def get_js_widget_data(self, name, element_id):
         map_elem_selector = "#%s-mw-wrap" % name
         map_elem_id = "%s-map-elem" % name
@@ -266,3 +263,61 @@ class GoogleStaticOverlayMapWidget(GoogleStaticMapWidget):
         context = super(GoogleStaticOverlayMapWidget, self).get_context_data(name, value, attrs)
         context["thumbnail_url"] = self.thumbnail_url(value)
         return context
+
+
+###### MapBox Widgets #####
+
+
+class MapboxPointFieldWidget(BaseGeometryWidget):
+    template_name = "mapwidgets/mapbox-point-field-widget.html"
+
+    @property
+    def media(self):
+        css = {
+            "all": [
+                minify_if_not_debug("mapwidgets/css/map_widgets{}.css"),
+            ]
+        }
+
+        js = [
+            "https://maps.googleapis.com/maps/api/js?libraries=places&key={}".format(mw_settings.GOOGLE_MAP_API_KEY)
+        ]
+
+        if not mw_settings.MINIFED:
+            js = js + [
+                "mapwidgets/js/jquery_class.js",
+                "mapwidgets/js/django_mw_base.js",
+                "mapwidgets/js/mw_mapbox_point_field.js",
+            ]
+        else:
+            js = js + [
+                "mapwidgets/js/mw_mapbox_point_field.min.js"
+            ]
+
+        return forms.Media(js=js, css=css)
+
+    @staticmethod
+    def map_options():
+        return json.dumps(mw_settings.MapboxPointFieldWidget)
+
+    def render(self, name, value, attrs=None):
+        if not attrs:
+            attrs = dict()
+
+        field_value = {}
+        if isinstance(value, Point):
+            field_value["lng"] = value.x
+            field_value["lat"] = value.y
+
+        if value and isinstance(value, six.string_types):
+            coordinates = self.deserialize(value)
+            field_value["lng"] = getattr(coordinates, "x", None)
+            field_value["lat"] = getattr(coordinates, "y", None)
+
+        extra_attrs = {
+            "options": self.map_options(),
+            "field_value": json.dumps(field_value)
+        }
+
+        attrs.update(extra_attrs)
+        return super(GooglePointFieldWidget, self).render(name, value, attrs)
