@@ -25,5 +25,4 @@ Alternatively, install the package from github
 Requirements
 ^^^^^^^^^^^^
 
-Django map widgets uses the inbuilt django jQuery library. No further admin settings is required.
-
+Django map widgets uses the internal admins jQuery files. No further import is necessary. But if you use this in a djangoForm class then you should import your own jQuery during the frontend implementation of the widget.
